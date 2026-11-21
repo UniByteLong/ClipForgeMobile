@@ -184,7 +184,7 @@ object GeminiService {
                     .put("temperature", 0.4))
 
             val genReq = Request.Builder()
-                .url("[https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey](https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey)")
+                .url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey")
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
@@ -221,7 +221,7 @@ object GeminiService {
                 .toString().toRequestBody("application/json".toMediaType())
 
             val initReq = Request.Builder()
-                .url("[https://generativelanguage.googleapis.com/upload/v1beta/files?key=$apiKey](https://generativelanguage.googleapis.com/upload/v1beta/files?key=$apiKey)")
+                .url("https://generativelanguage.googleapis.com/upload/v1beta/files?key=$apiKey")
                 .addHeader("X-Goog-Upload-Protocol", "resumable")
                 .addHeader("X-Goog-Upload-Command", "start")
                 .addHeader("X-Goog-Upload-Header-Content-Length", sizeBytes.toString())
@@ -266,7 +266,7 @@ object GeminiService {
             while (state == "PROCESSING" && attempts < 45) {
                 delay(2000)
                 val checkReq = Request.Builder()
-                    .url("[https://generativelanguage.googleapis.com/v1beta/$fileName?key=$apiKey](https://generativelanguage.googleapis.com/v1beta/$fileName?key=$apiKey)")
+                    .url("https://generativelanguage.googleapis.com/v1beta/$fileName?key=$apiKey")
                     .get()
                     .build()
                 client.newCall(checkReq).execute().use { resp ->
@@ -294,7 +294,7 @@ object GeminiService {
                     .put("temperature", 0.4))
 
             val genReq = Request.Builder()
-                .url("[https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey](https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey)")
+                .url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey")
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
