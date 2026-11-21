@@ -24,6 +24,7 @@ import com.clipforge.mobile.ai.VideoMoment
 import com.clipforge.mobile.settings.SettingsManager
 import com.clipforge.mobile.ui.screens.CreateAndAnalyzeScreen
 import com.clipforge.mobile.ui.screens.SettingsScreen
+import com.clipforge.mobile.ui.screens.TextMotionStudioScreen
 import com.clipforge.mobile.ui.theme.ClipForgeTheme
 import com.clipforge.mobile.ui.theme.TextSecondary
 import com.clipforge.mobile.utils.VideoMetadata
@@ -67,7 +68,7 @@ fun ClipForgeApp(
         uri?.let {
             selectedVideo = VideoMetadataExtractor.extract(context, it)
             foundMoments = emptyList()
-            selectedTab = 1
+            if (selectedTab == 0) selectedTab = 1
         }
     }
 
@@ -81,7 +82,7 @@ fun ClipForgeApp(
                 val items = listOf(
                     "Главная" to Icons.Outlined.Home,
                     "Создать" to Icons.Outlined.AddCircleOutline,
-                    "Проекты" to Icons.Outlined.FolderOpen,
+                    "Студия" to Icons.Outlined.TextFields,
                     "Настройки" to Icons.Outlined.Settings
                 )
                 items.forEachIndexed { index, (label, icon) ->
@@ -101,6 +102,7 @@ fun ClipForgeApp(
                     hasApiKey = hasApiKey,
                     modelName = settings.modelName,
                     onPickVideo = { videoPicker.launch("video/*") },
+                    onOpenStudio = { selectedTab = 2 },
                     onOpenSettings = { selectedTab = 3 }
                 )
                 1 -> CreateAndAnalyzeScreen(
@@ -110,7 +112,11 @@ fun ClipForgeApp(
                     onMomentsFound = { foundMoments = it },
                     onPickVideo = { videoPicker.launch("video/*") }
                 )
-                2 -> ProjectsPlaceholder()
+                2 -> TextMotionStudioScreen(
+                    video = selectedVideo,
+                    settings = settings,
+                    onPickVideo = { videoPicker.launch("video/*") }
+                )
                 3 -> SettingsScreen(
                     settings = settings,
                     isDarkTheme = isDarkTheme,
@@ -127,11 +133,12 @@ fun HomeScreen(
     hasApiKey: Boolean,
     modelName: String,
     onPickVideo: () -> Unit,
+    onOpenStudio: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("ClipForge", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        Text("AI-нарезчик вертикальных клипов", color = TextSecondary, fontSize = 14.sp)
+        Text("AI-нарезчик и Text & Motion Studio", color = TextSecondary, fontSize = 14.sp)
 
         Button(
             onClick = onPickVideo,
@@ -141,6 +148,16 @@ fun HomeScreen(
             Icon(Icons.Outlined.VideoLibrary, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text("Выбрать видео для нарезки", fontWeight = FontWeight.SemiBold)
+        }
+
+        OutlinedButton(
+            onClick = onOpenStudio,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Icon(Icons.Outlined.TextFields, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Открыть Text & Motion Studio")
         }
 
         Surface(
@@ -166,12 +183,5 @@ fun HomeScreen(
                 Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
         }
-    }
-}
-
-@Composable
-fun ProjectsPlaceholder() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("История проектов и база Room появятся на следующем этапе", color = TextSecondary)
     }
 }
