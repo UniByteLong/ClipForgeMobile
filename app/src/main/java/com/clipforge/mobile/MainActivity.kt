@@ -15,10 +15,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.clipforge.mobile.ai.VideoMoment
+import com.clipforge.mobile.settings.SettingsManager
+import com.clipforge.mobile.ui.screens.CreateAndAnalyzeScreen
+import com.clipforge.mobile.ui.screens.SettingsScreen
 import com.clipforge.mobile.ui.theme.ClipForgeTheme
 import com.clipforge.mobile.ui.theme.TextSecondary
 import com.clipforge.mobile.utils.VideoMetadata
@@ -27,12 +32,17 @@ import com.clipforge.mobile.utils.VideoMetadataExtractor
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val settings = SettingsManager(this)
         setContent {
-            var isDarkTheme by remember { mutableStateOf(true) }
+            var isDarkTheme by remember { mutableStateOf(settings.isDarkTheme) }
             ClipForgeTheme(darkTheme = isDarkTheme) {
                 ClipForgeApp(
+                    settings = settings,
                     isDarkTheme = isDarkTheme,
-                    onToggleTheme = { isDarkTheme = !isDarkTheme }
+                    onToggleTheme = {
+                        isDarkTheme = !isDarkTheme
+                        settings.isDarkTheme = isDarkTheme
+                    }
                 )
             }
         }
@@ -40,9 +50,15 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ClipForgeApp(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
+fun ClipForgeApp(
+    settings: SettingsManager,
+    isDarkTheme: Boolean,
+    onToggleTheme: () -> Unit
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedVideo by remember { mutableStateOf<VideoMetadata?>(null) }
+    var foundMoments by remember { mutableStateOf<List<VideoMoment>>(emptyList()) }
+    var hasApiKey by remember { mutableStateOf(settings.apiKey.isNotBlank()) }
     val context = LocalContext.current
 
     val videoPicker = rememberLauncherForActivityResult(
@@ -50,6 +66,7 @@ fun ClipForgeApp(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
     ) { uri: Uri? ->
         uri?.let {
             selectedVideo = VideoMetadataExtractor.extract(context, it)
+            foundMoments = emptyList()
             selectedTab = 1
         }
     }
@@ -80,20 +97,38 @@ fun ClipForgeApp(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
             when (selectedTab) {
-                0 -> HomeScreen(onPickVideo = { videoPicker.launch("video/*") })
-                1 -> CreateScreen(
+                0 -> HomeScreen(
+                    hasApiKey = hasApiKey,
+                    modelName = settings.modelName,
+                    onPickVideo = { videoPicker.launch("video/*") },
+                    onOpenSettings = { selectedTab = 3 }
+                )
+                1 -> CreateAndAnalyzeScreen(
                     video = selectedVideo,
+                    settings = settings,
+                    moments = foundMoments,
+                    onMomentsFound = { foundMoments = it },
                     onPickVideo = { videoPicker.launch("video/*") }
                 )
                 2 -> ProjectsPlaceholder()
-                3 -> SettingsScreen(isDarkTheme, onToggleTheme)
+                3 -> SettingsScreen(
+                    settings = settings,
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onSettingsUpdated = { hasApiKey = settings.apiKey.isNotBlank() }
+                )
             }
         }
     }
 }
 
 @Composable
-fun HomeScreen(onPickVideo: () -> Unit) {
+fun HomeScreen(
+    hasApiKey: Boolean,
+    modelName: String,
+    onPickVideo: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("ClipForge", fontSize = 26.sp, fontWeight = FontWeight.Bold)
         Text("AI-нарезчик вертикальных клипов", color = TextSecondary, fontSize = 14.sp)
@@ -109,6 +144,7 @@ fun HomeScreen(onPickVideo: () -> Unit) {
         }
 
         Surface(
+            onClick = onOpenSettings,
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             color = MaterialTheme.colorScheme.surface,
@@ -121,7 +157,11 @@ fun HomeScreen(onPickVideo: () -> Unit) {
             ) {
                 Column {
                     Text("Статус AI", fontSize = 12.sp, color = TextSecondary)
-                    Text("Gemini API: ожидание ключа", fontWeight = FontWeight.Medium)
+                    Text(
+                        text = if (hasApiKey) "Готов ($modelName)" else "Нажми, чтобы добавить API Key",
+                        fontWeight = FontWeight.Medium,
+                        color = if (hasApiKey) Color(0xFF22C55E) else MaterialTheme.colorScheme.onSurface
+                    )
                 }
                 Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
@@ -130,67 +170,8 @@ fun HomeScreen(onPickVideo: () -> Unit) {
 }
 
 @Composable
-fun CreateScreen(video: VideoMetadata?, onPickVideo: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Новый проект", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-
-        if (video == null) {
-            OutlinedButton(
-                onClick = onPickVideo,
-                modifier = Modifier.fillMaxWidth().height(120.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Outlined.UploadFile, contentDescription = null)
-                    Spacer(Modifier.height(6.dp))
-                    Text("Выбрать видео из галереи или файлов")
-                }
-            }
-        } else {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(video.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    Text(
-                        "Длительность: ${VideoMetadataExtractor.formatDuration(video.durationMs)} • ${video.width}x${video.height}",
-                        color = TextSecondary, fontSize = 13.sp
-                    )
-                    Text(
-                        "Размер: ${VideoMetadataExtractor.formatSize(video.sizeBytes)} • FPS: ${video.fps}",
-                        color = TextSecondary, fontSize = 13.sp
-                    )
-                }
-            }
-            OutlinedButton(onClick = onPickVideo, modifier = Modifier.fillMaxWidth()) {
-                Text("Выбрать другое видео")
-            }
-        }
-    }
-}
-
-@Composable
 fun ProjectsPlaceholder() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Сохраненные проекты появятся после подключения базы Room", color = TextSecondary)
-    }
-}
-
-@Composable
-fun SettingsScreen(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Настройки", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Тёмная тема")
-            Switch(checked = isDarkTheme, onCheckedChange = { onToggleTheme() })
-        }
+        Text("История проектов и база Room появятся на следующем этапе", color = TextSecondary)
     }
 }
