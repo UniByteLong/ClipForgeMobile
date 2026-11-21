@@ -19,6 +19,10 @@ import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 object GeminiService {
+    private const val SCHEME = "https://"
+    private const val GEMINI_HOST = "generativelanguage.googleapis.com"
+    private const val YT_HOST = "www.youtube.com"
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(300, TimeUnit.SECONDS)
@@ -28,10 +32,8 @@ object GeminiService {
     suspend fun verifyApiKey(apiKey: String, model: String): Result<String> = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) return@withContext Result.failure(Exception("API ключ не указан"))
         try {
-            val req = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/$model?key=$apiKey")
-                .get()
-                .build()
+            val url = "${SCHEME}${GEMINI_HOST}/v1beta/models/$model?key=$apiKey"
+            val req = Request.Builder().url(url).get().build()
             client.newCall(req).execute().use { resp ->
                 if (resp.isSuccessful) {
                     Result.success("Подключено ($model)")
@@ -47,10 +49,8 @@ object GeminiService {
     suspend fun fetchYouTubeTitle(youtubeUrl: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             val encoded = URLEncoder.encode(youtubeUrl.trim(), "UTF-8")
-            val req = Request.Builder()
-                .url("https://www.youtube.com/oembed?url=$encoded&format=json")
-                .get()
-                .build()
+            val url = "${SCHEME}${YT_HOST}/oembed?url=$encoded&format=json"
+            val req = Request.Builder().url(url).get().build()
             client.newCall(req).execute().use { resp ->
                 if (resp.isSuccessful) {
                     val json = JSONObject(resp.body?.string() ?: "{}")
@@ -183,8 +183,9 @@ object GeminiService {
                     .put("responseMimeType", "application/json")
                     .put("temperature", 0.4))
 
+            val genUrl = "${SCHEME}${GEMINI_HOST}/v1beta/models/$model:generateContent?key=$apiKey"
             val genReq = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey")
+                .url(genUrl)
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
@@ -220,8 +221,9 @@ object GeminiService {
             val initBody = JSONObject().put("file", JSONObject().put("display_name", "clipforge_video"))
                 .toString().toRequestBody("application/json".toMediaType())
 
+            val initUrl = "${SCHEME}${GEMINI_HOST}/upload/v1beta/files?key=$apiKey"
             val initReq = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/upload/v1beta/files?key=$apiKey")
+                .url(initUrl)
                 .addHeader("X-Goog-Upload-Protocol", "resumable")
                 .addHeader("X-Goog-Upload-Command", "start")
                 .addHeader("X-Goog-Upload-Header-Content-Length", sizeBytes.toString())
@@ -265,10 +267,8 @@ object GeminiService {
             var attempts = 0
             while (state == "PROCESSING" && attempts < 45) {
                 delay(2000)
-                val checkReq = Request.Builder()
-                    .url("https://generativelanguage.googleapis.com/v1beta/$fileName?key=$apiKey")
-                    .get()
-                    .build()
+                val checkUrl = "${SCHEME}${GEMINI_HOST}/v1beta/$fileName?key=$apiKey"
+                val checkReq = Request.Builder().url(checkUrl).get().build()
                 client.newCall(checkReq).execute().use { resp ->
                     if (resp.isSuccessful) {
                         state = JSONObject(resp.body?.string() ?: "{}").optString("state", "ACTIVE")
@@ -293,8 +293,9 @@ object GeminiService {
                     .put("responseMimeType", "application/json")
                     .put("temperature", 0.4))
 
+            val genUrl = "${SCHEME}${GEMINI_HOST}/v1beta/models/$model:generateContent?key=$apiKey"
             val genReq = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey")
+                .url(genUrl)
                 .post(payload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
